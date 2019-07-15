@@ -51,7 +51,7 @@ ggmap(base_map) +
                                             y = latitude, 
                                             color = name), 
              size = 2, 
-             alpha = 0.5) +
+             alpha = 0.7) +
   facet_wrap(~ quarter)
 
 #Generating summary data frame to plot medians
@@ -74,7 +74,7 @@ sum_mwm_data = summary_data %>%
   left_join(mwm_sub, by = "name")
 
 sum_mwm_data %>%
-  group_by(flowering_cat) %>%
+  group_by(flowering_cat, name) %>%
   summarize(n = n())
 
 write_csv(sum_mwm_data, "./data/mw_flowering_data.csv")

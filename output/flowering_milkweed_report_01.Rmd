@@ -1,0 +1,107 @@
+---
+title: "Flowering Milkweed Distribution Models"
+author: "Keaton Wilson"
+date: "7/11/2019"
+output:  
+  html_document:  
+    theme: cosmo  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, root.dir = "~/Documents/Projects/flowering_milkweed/")
+library(tidyverse)
+library(mapr)
+library(ggmap)
+library(readxl)
+library(lubridate)
+
+register_google(key = "AIzaSyDyAqUc4o9p_DOBSF_JOXH5c_JXPqoU4Yw")
+```
+
+## Introduction  
+
+Recent work has generated habitat suitability models for Monarchs in the West, 
+which appears to be structured primarily by host plant habitat associations, 
+which are driven by climatic variables [(Dilts et al. 2019)](https://www.frontiersin.org/articles/10.3389/fevo.2019.00188/full?&utm_source=Email_to_authors_&utm_medium=Email&utm_content=T1_11.5e1_author&utm_campaign=Email_publication&field=&journalName=Frontiers_in_Ecology_and_Evolution&id=441209).  
+
+This paper lays the groundwork for using the accessible [Milkweed Mapper](https://www.monarchmilkweedmapper.org) data to create predictive models of where Monarchs
+are on the landscape in the west, where their associated host plants are, and make 
+inferences about environmental variables affecting this relationship.  
+
+The goal of this preliminary work is to explore these data with a few a specific aims:  
+
+  1. Explore a subset of the Milkweed Mapper data: **records of flowering Milkweeds**  
+  
+  2. Determine temporal and spatial patterns of floral resources  
+  
+  3. Develop a mixed-species distribution model(s) that focuses on early, mid, and late blooming milkweed  
+  
+  4. Examine how these patterns have changed over time (given that there is enough data)  
+
+## Data Access and Summary  
+
+I manually downloaded the data from the [export page](https://www.monarchmilkweedmapper.org/app/#/combined/map) on the Western Monarch Milkweed mapper website. I filtered for all milkweed species, and only records of flowering plants. Data was accessed at July 8th, 2019.  
+
+I also did a bit of preprocessing on the data that I won't show here. Added a few useful new columns like the full scientific name, the mean month that a given species is flowering, and then breaking each species into an early, mid or late bloomer where:  
+
+**early bloomer <= 6.5 as average month (mid June)**  
+**late bloomer <= 7.5 as average month (mid July)**  
+**mid bloomer = everything in between**  
+
+The figure below shows the distribution of occurence records of flowering examples for each of the species, with the median as a vertical line. 
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+#Generating summary data frame to plot medians
+mwm_sub = read_csv("~/Documents/Projects/flowering_milkweed/data/mw_flowering_data.csv")
+summary_data = mwm_sub %>%
+  group_by(name) %>%
+  summarize(mean_month = mean(month(DateIdentified), na.rm = TRUE))
+
+#median plot
+mwm_sub %>%
+  ggplot(aes(x = month(DateIdentified), color = name)) +
+  geom_vline(data = summary_data, aes(xintercept = mean_month), lty = 2) +
+  geom_density() +
+  facet_wrap(~ name) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  ylab("Kernel Density Estimate") +
+  xlab("Month") +
+  scale_x_continuous(breaks = c(1,6,12))
+
+```
+
+Overall, there were 2038 records for early bloomers (10 species, including those with no species description), 482 records for mid (8 species) and 25 for late (2 species, including a generalized category spp.). I also removed species from the data set with very low record numbers (< 5).  
+
+Let's look quickly at a summary of the processed data frame:  
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+mw = read_csv("~/Documents/Projects/flowering_milkweed/data/mw_flowering_data.csv")
+mw$flowering_cat = factor(mw$flowering_cat, levels = c("early", "mid", "late"))
+glimpse(mw)
+
+```
+
+## Preliminary Mapping  
+
+As a first pass, let's take a look at a map of all of our records, color-coded by 
+the different flowering categories (early, mid, late).  
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
+#map boundaries
+left = -126
+bottom = 31
+right = -100
+top = 52
+base_map = get_map(c(left, bottom, right, top),
+                   source = "stamen", maptype = "toner")
+ggmap(base_map) +
+  geom_point(data = mw %>%
+               filter(!is.na(quarter)), aes(x = longitude, 
+                                            y = latitude, 
+                                            color = flowering_cat), 
+             size = 1.5, 
+             alpha = 0.5) +
+  scale_color_discrete(name = "Flowering Category", 
+                       labels = c("Early", "Middle", "Late"))
+```
